@@ -1,0 +1,29 @@
+group_name: cassandra
+user_name: cassandra
+group_id: 1001
+user_id: 1001
+bash_aliases_path: "~/.bash_aliases"
+bash_aliases: true
+alias: nodetool
+command: /usr/local/cassandra/bin/nodetool
+# vars file for cassandra
+#############################
+
+# Cassandra nodes private IPs
+# Used for defining seeds
+cassandra_seeds:
+    - 192.232.20.16
+    - 192.232.20.17
+    - 192.232.20.18
+
+# Cassandra nodes, that are no seeds
+cassandra_no_seeds:
+    - 192.232.20.19
+    - 192.232.20.20
+    - 192.232.20.21
+
+# Cassandra configuration file
+cassandra_cfg_file: /etc/cassandra/cassandra.yaml
+
+# Cassandra cluster name
+cassandra_cluster_name: Orionhelth

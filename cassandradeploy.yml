@@ -1,0 +1,132 @@
+---
+- name: deploy cassandra
+  hosts: [cassandra-cluster]
+  gather_facts: yes
+  become: true
+  become_method: sudo
+  vars_files:
+
+    - vars.yml
+
+  tasks:
+     
+    - name: update upgrade
+      shell: apt update -y && apt upgrade -y
+
+    - name: Java8jdk 
+      shell: apt install openjdk-8-jdk -y 
+    
+    - name: Python
+      shell: apt install python -y
+    
+    
+    - name: Download package  cassandra
+      shell:  wget http://apache.claz.org/cassandra/3.11.4/apache-cassandra-3.11.4-bin.tar.gz && tar -xzvf apache-cassandra-3.11.4-bin.tar.gz
+
+
+    - name:  Move apache-cassandra to /usr/local/cassandra
+      command: creates="/usr/local/cassandra" mv apache-cassandra-3.11.4 /usr/local/cassandra
+
+    - name: add groups
+      group:
+         name: "{{ item.name }}"
+         gid: "{{ item.gid }}"
+         state: present
+      with_items:
+         - { name: "{{ group_name }}", gid: "{{ group_id }}" }
+      
+    - name: more complex items to add several users
+      user:
+         name: "{{ item.name }}"
+         uid: "{{ item.uid }}"
+         groups: "{{ item.groups }}"
+         state: present
+         #password: "{{ item.password }}"
+         #password: "{{ password  }}"
+      with_items:
+         - { name: "{{ user_name }}", uid: "{{ user_id }}", groups: "{{ group_name }}" }
+
+
+    - name: User  Mangement Cassandra
+      shell: chown root:cassandra -R /usr/local/cassandra/ &&  chmod g+w -R /usr/local/cassandra/
+
+      
+    - name: cassandra service bin 
+      copy:
+         src: cassandra.service.j2
+         dest: /etc/systemd/system/cassandra.service
+         
+    - name: daemon reload
+      shell: systemctl daemon-reload
+
+    - name: enable cassandra.service
+      shell: systemctl enable cassandra.service
+
+
+    - name: swap off
+      shell: swapoff -a
+
+    - name:
+      lineinfile:
+         dest:  /etc/fstab
+         state: present
+         insertafter: 'LABEL=UEFI      /boot/efi       vfat    defaults,discard        0 0'
+         line: '/swap.img	none	swap	sw	0	0'
+      
+    - name: conf cassandra.conf
+      copy:
+         src: cassandra.conf.j2
+         dest:  /etc/security/limits.d/cassandra.conf
+
+
+    - name:
+      lineinfile:
+         dest:  /etc/sysctl.conf 
+         state: present
+         insertafter: '#kernel.printk = 3 4 1 3'
+         line: 'vm.max_map_count = 131072'
+
+
+    - name: cassandra.yaml
+      template:
+         src: cassandra.yaml.j2
+         dest: /usr/local/cassandra/conf/cassandra.yaml
+   
+   
+    - name: "Creating multiple folders without disturbing previous permissions"
+      file:
+         path: "{{ item }}"
+         state: directory
+         mode: 0755
+         group: cassandra
+         owner: cassandra
+      with_items: 
+          - /var/lib/cassandra
+          - /var/lib/cassandra/data
+          - /var/lib/cassandra/commitlog
+      tags: 
+        - logfiles
+
+    - name: Restart Cassandra
+      command: systemctl restart cassandra
+
+    - name: remove package 
+      shell: rm -f apache-cassandra-3.11.4-bin.tar.gz*
+
+      #    - name: Bash aliases | Add aliases
+      #      lineinfile:
+      #        dest: "{{ bash_aliases_path }}"
+      #        create: yes
+      #        mode: 0644
+      #        line: 'alias {{ item.alias }}="{{ item.command }}"'
+      #        regexp: "^alias {{ item.alias }}="
+      #      with_items: "{{ bash_aliases }}"
+      #      when: bash_aliases != false
+
+      #    - name: source bashrc file
+      #      shell: source /home/deploy/.bash_aliases && nodetool status
+      #      args: 
+      #        executable: /bin/bash
+ #     shell: "{{ item }}"
+ #     with_items:
+ #        - source ~/.bash_aliases
